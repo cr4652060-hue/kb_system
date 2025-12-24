@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>业务知识库检索</title>
+    <link rel="stylesheet" href="/style.css"/>
+
+
+
+</head>
+<body> <script src="/app.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+    const p = new URLSearchParams(location.search);
+    if (p.get("logout") !== null) {
+        const status = document.getElementById("status");
+        if (status) {
+            status.textContent = "已退出登录，当前为员工访问模式。";
+        }
+    }
+</script>
+<div class="wrap">
+    <h1>📚 业务知识库检索（分类 + 单字检索 + 二维表）</h1>
+
+    <div class="card">
+        <div class="topbar">
+            <div class="row" style="gap:10px; align-items:center;">
+        <span class="badge">
+            当前用户：<b id="meUser">-</b>
+            角色：<b id="meRole">-</b>
+            部门：<b id="meDept">-</b>
+        </span>
+                <span id="status" class="hint"></span>
+            </div>
+
+            <div class="actions">
+                <!-- 未登录显示 -->
+                <a id="loginLink" href="/login.html" style="display:none;">登录 / 切换账号</a>
+
+                <!-- 已登录显示 -->
+                <form id="logoutForm" action="/logout" method="post" style="display:none;">
+                    <button type="submit" class="linkLike">退出登录</button>
+                </form>
+
+                <a id="adminLink" href="/admin.html" style="display:none;">管理员：部门账号管理</a>
+
+                <!-- 模板下载（登录后显示） -->
+                <a id="tplBtn" href="/kb_stystem_template.xlsx" class="btn primary" style="display:none;">⬇ 下载模板</a>
+
+                <button id="addBtn" type="button" style="display:none;">➕ 新增知识</button>
+            </div>
+        </div>
+
+
+        <div class="row">
+            <div class="modules" id="modules"></div>
+        </div>
+
+        <div class="row">
+            <input id="q" type="text" placeholder="输入关键词（支持单字/中文/英文）…"/>
+            <button id="search">搜索</button>
+
+
+        </div>
+
+        <!-- Excel 入库 -->
+        <div id="excelCard" class="card" style="display:none; margin-top:12px;">
+            <div class="row" style="align-items:center; gap:12px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input id="excelFile" type="file" accept=".xlsx" />
+                    <button id="btnExcelImport" class="btn primary" type="button">上传Excel入库</button>
+                </div>
+
+                <div id="excelHint" class="hint" style="color:#666;">
+                    （管理员/部门维护人可上传；普通员工无需登录可直接检索）
+                </div>
+            </div>
+
+            <div id="excelMsg" class="msg" style="margin-top:10px; color:#333;"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="hint">结果（默认按“最新要求下达时间”倒序）</div>
+        <div id="table"></div>
+    </div>
+</div>
+
+
+</body>
+
+
+
+</html>

@@ -1,0 +1,53 @@
+<!doctype html>
+        <html lang="zh-CN">
+        <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width,initial-scale=1"/>
+        <title>管理员 - 部门账号管理</title>
+    <link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+<div class="wrap">
+    <h1>🛠 管理员 - 部门账号管理</h1>
+
+    <div class="card">
+        <div class="row">
+            <div>当前用户：<b id="me"></b>　角色：<b id="role"></b></div>
+            <div>
+                <a href="/">返回检索</a>　|　<a href="/logout">退出登录</a>
+            </div>
+        </div>
+
+        <div class="row">
+            <button id="bootstrap">一键生成全部部门维护账号（含密码）</button>
+            <button id="refresh" class="secondary">刷新账号列表</button>
+        </div>
+
+        <div class="hint" id="status"></div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">账号列表（不显示密码）</h3>
+        <div id="table"></div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">重置密码</h3>
+        <div class="row">
+            <input id="u" type="text" placeholder="用户名，如 xindai" />
+            <input id="p" type="text" placeholder="新密码，如 Xindai@KB2025" />
+            <button id="reset">重置</button>
+        </div>
+        <div class="hint">建议密码规则：首字母大写用户名 + @KB + 年份，例如：Xindai@KB2025</div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">一键生成结果（会显示密码，复制后请妥善保存）</h3>
+        <pre id="result" style="white-space:pre-wrap;background:#fafafa;padding:10px;border-radius:10px"></pre>
+    </div>
+
+</div>
+
+<script src="/admin.js"></script>
+</body>
+</html>
