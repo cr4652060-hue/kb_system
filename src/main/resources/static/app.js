@@ -29,16 +29,38 @@ async function apiJson(url, options) {
     }
 }
 
+// ========= 工具 =========
+const byId = (id) => document.getElementById(id);
 
-
+function bindClick(id, handler) {
+    const el = byId(id);
+    if (el) el.addEventListener("click", handler);
+    return el;
+}
 // ========= UI =========
 function setStatus(msg) {
-    const el = $("status");
+    const el = byId("status");
     if (el) el.textContent = msg || "";
 }
+function escapeHtml(v) {
+    return (v ?? "")
+        .toString()
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
 
-function renderTable(rows, q) {// 登陆并渲染表格
-    const box = $("table");
+function highlight(text, q) {
+    const src = escapeHtml(text);
+    const kw = (q || "").trim();
+    if (!kw) return src;
+    const reg = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    return src.replace(reg, (m) => `<mark>${m}</mark>`);
+}
+function renderTable(rows, q) { // 登陆并渲染表格
+    const box = byId("table");
     if (!box) return;
 
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -79,99 +101,156 @@ function renderTable(rows, q) {// 登陆并渲染表格
 }
 
 
-
-
-
-
-
-// ===== 刷新 UI =====
-function $(id) { return document.getElementById(id); }
-
 function roleUpper(me) {
     return ((me && me.role) ? me.role : "").toUpperCase();
 }
 
 
-
+// ===== 刷新 UI =====
 async function refreshMe() {
     try {
-        const loginLink = document.getElementById("loginLink");
-        const adminLink = document.getElementById("adminLink");
-        const tplBtn = document.getElementById("tplBtn");
-        const logoutForm = document.getElementById("logoutForm");
+        const loginLink = byId("loginLink");
+        const adminLink = byId("adminLink");
+        const tplBtn = byId("tplBtn");
+        const logoutForm = byId("logoutForm");
+        const excelCard = byId("excelCard");
+        const addBtn = byId("addBtn");
 
-        // 请求用户信息
-        const res = await fetch("/api/me");
-        const me = await res.json();
+        const me = await fetchMeSafe();
         window.me = me;
+        const normRole = normalizeRole(me);
 
-        console.log("User data:", window.me);  // 查看获取的用户数据
+        // 控制显示登录/登出
+        if (loginLink) loginLink.style.display = me ? "none" : "inline";
+        if (logoutForm) logoutForm.style.display = me ? "inline" : "none";
 
-        // 控制显示登录链接
-        if (loginLink) {
-            loginLink.style.display = me ? "none" : "inline"; // 如果有用户信息则隐藏登录链接
-        }
+        // 用户信息
+        const eUser = byId("meUser");
+        const eRole = byId("meRole");
+        const eDept = byId("meDept");
+        if (eUser) eUser.textContent = me ? (me.username || "-") : "-";
+        if (eRole) eRole.textContent = me ? (me.role || normRole || "-") : "-";
+        if (eDept) eDept.textContent = me ? (me.department || "-") : "-";
 
-        // 控制显示登出按钮
-        if (logoutForm) {
-            logoutForm.style.display = me ? "inline" : "none"; // 如果有用户信息则显示登出按钮
-        }
-
-        // 清空用户信息
-        const eUser = document.getElementById("meUser");
-        const eRole = document.getElementById("meRole");
-        const eDept = document.getElementById("meDept");
-
-        if (eUser) eUser.textContent = me ? me.username : "-";
-        if (eRole) eRole.textContent = me ? me.role : "-";
-        if (eDept) eDept.textContent = me ? me.department : "-";
-
-        // 显示管理员链接
-        if (adminLink) {
-            adminLink.style.display = me && (me.role === 'ADMIN' || me.role === 'DEPT') ? "inline" : "none";
-        }
-
-        // 显示下载按钮
+        // 管理/模板/Excel 权限
+        const canAdmin = normRole === "ADMIN" || normRole === "DEPT";
+        if (adminLink) adminLink.style.display = canAdmin ? "inline" : "none";
         if (tplBtn) {
-            tplBtn.style.display = me && (me.role === 'ADMIN' || me.role === 'DEPT') ? "inline" : "none";
+            tplBtn.style.display = canDownloadTemplate(me) ? "inline" : "none";
+            tplBtn.href = TPL_URL;
         }
+        if (excelCard) excelCard.style.display = canUploadExcel(me) ? "block" : "none";
+        if (!canUploadExcel(me) && excelCard) {
+            const msg = byId("excelMsg");
+            if (msg) msg.textContent = "";
+        }
+        if (addBtn) addBtn.style.display = canAdmin ? "inline" : "none";
 
     } catch (e) {
         console.error("获取用户信息失败:", e);
-
-        // 处理错误，例如提示用户登录
+        if (byId("loginLink")) byId("loginLink").style.display = "inline";
+        if (byId("logoutForm")) byId("logoutForm").style.display = "none";
     }
 }
 
+// 执行搜索       renderTable(rows, q);
+//     } catch (e) {
+//         console.error(e);
+//         setStatus("搜索失败：" + e.message);
+//     }
+// }
+async function runSearch() {
+    const input = byId("q");
+    const q = input ? input.value.trim() : "";
+    setStatus(q ? "搜索中…" : "加载最新数据中…");
+    try {
+        let rows;
+        if (!q) {
+            // 没有关键字时，默认拉取最新 200 条，方便用户先看到数据
+            rows = await apiJson(`/api/knowledge?limit=200`);
+            setStatus(`显示最近 ${rows.length} 条记录。`);
+        } else {
+            const params = new URLSearchParams({ q });
+            rows = await apiJson(`${SEARCH_API}?${params.toString()}`);
+            setStatus(`找到 ${rows.length} 条结果。`);
+        }
+        renderTable(rows, q);
+    } catch (e) {
+        console.error(e);
+        setStatus("搜索失败：" + e.message);
+    }
+}
+// 执行搜索
+async function runSearch() {
+    const input = byId("q");
+    const q = input ? input.value.trim() : "";
+    setStatus(q ? "搜索中…" : "加载最新数据中…");
+    try {
+        let rows;
+        if (!q) {
+            // 没有关键字时，默认拉取最新 200 条，方便用户先看到数据
+            rows = await apiJson(`/api/knowledge?limit=200`);
+            setStatus(`显示最近 ${rows.length} 条记录。`);
+        } else {
+            const params = new URLSearchParams({ q });
+            rows = await apiJson(`${SEARCH_API}?${params.toString()}`);
+            setStatus(`找到 ${rows.length} 条结果。`);
+        }
 
-
-// 确保 DOM 加载后再跑
-document.addEventListener("DOMContentLoaded", () => {
-    refreshMe();
-});
-const searchButton = document.getElementById("search");
-if (searchButton) {
-    searchButton.addEventListener("click", runSearch);
+        renderTable(rows, q);
+    } catch (e) {
+        console.error(e);
+        setStatus("搜索失败：" + e.message);
+    }
 }
 
-const searchInput = document.getElementById("q");
-if (searchInput) {
-    searchInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") runSearch();
-    });
+function showExcelMessage(text, isError) {
+    const msg = byId("excelMsg");
+    if (!msg) return;
+    msg.textContent = text;
+    msg.style.color = isError ? "#cf1322" : "#333";
 }
 
+async function importExcel() {
+    const fileInput = byId("excelFile");
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showExcelMessage("请先选择要上传的 Excel 文件。", true);
+        return;
+    }
 
+    const file = fileInput.files[0];
+    const fd = new FormData();
+    fd.append("file", file);
 
+    try {
+        const res = await fetch(IMPORT_API, {
+            method: "POST",
+            body: fd,
+            credentials: "same-origin",
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        showExcelMessage(`导入成功：新增 ${data.added} 条，更新 ${data.updated} 条。`, false);
+        runSearch();
+    } catch (e) {
+        console.error("Excel 导入失败", e);
+        showExcelMessage(`导入失败：${e.message}`, true);
+    }
+}
 // 要求：除了普通员工，能登录的都能下载模板
 function canDownloadTemplate(me) {
     if (!me) return false; // 未登录不行
-    const r = roleUpper(me);
+    const r = normalizeRole(me);
     return !(r === "EMP" || r === "USER" || r === "STAFF" || r === "EMPLOYEE");
 }
 
 function canUploadExcel(me) {
-    const r = roleUpper(me);
+    const r = normalizeRole(me);
     return r === "ADMIN" || r === "DEPT";
 }
 
@@ -201,3 +280,28 @@ async function fetchMeSafe() {
     }
 }
 
+
+
+// 确保 DOM 加载后再跑
+document.addEventListener("DOMContentLoaded", () => {
+    refreshMe();
+    renderTable([], "");
+
+    bindClick("search", runSearch);
+
+    const searchInput = byId("q");
+    if (searchInput) {
+        searchInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                runSearch();
+            }
+        });
+    }
+
+    const btnImport = bindClick("btnExcelImport", importExcel);
+    if (btnImport) {
+        const hint = byId("excelHint");
+        if (hint) hint.textContent = "仅管理员/部门维护人可上传，导入完成后自动刷新搜索结果。";
+    }
+});
